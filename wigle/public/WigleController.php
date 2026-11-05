@@ -63,7 +63,16 @@ class WigleController extends \frieren\core\Controller
             escapeshellarg($url)
         );
 
-        $output = self::setupCoreHelper()::exec($command, false);
+        // exec()'s signature is ($command, $merge = true, $raw = false) -- the previous
+        // call here passed `false` into $merge (not $raw), so $raw stayed at its default
+        // and escapeshellcmd() ran on a command that was already safely quoted via
+        // escapeshellarg() above. escapeshellcmd backslash-escapes the trailing `2>&1`
+        // into `2\>\&1`, which curl then treats as a bogus extra argument -- curl exits
+        // nonzero on every single call regardless of token validity, exec() returns
+        // false, and json_decode(false) is null, surfacing as a generic "Failed to query
+        // WiGLE API" for every endpoint (search/searchBluetooth/searchCell/etc.) no
+        // matter what's in the token. Passing $raw = true skips that corruption.
+        $output = self::setupCoreHelper()::exec($command, true, true);
         $response = json_decode($output, true);
 
         if (!$response) {
@@ -105,9 +114,20 @@ class WigleController extends \frieren\core\Controller
         $closestLat = $this->request['closestLat'] ?? '';
         $closestLong = $this->request['closestLong'] ?? '';
         $lastupdt = $this->request['lastupdt'] ?? '';
-        $onlymine = filter_var($this->request['onlymine'] ?? false, FILTER_VALIDATE_BOOLEAN);
-        $freenet = filter_var($this->request['freenet'] ?? false, FILTER_VALIDATE_BOOLEAN);
-        $paynet = filter_var($this->request['paynet'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        // Hand-rolled instead of filter_var()/FILTER_VALIDATE_BOOLEAN -- this device's
+        // PHP-FPM build ships without the `filter` extension installed, so that call
+        // throws "Call to undefined function filter_var()" on every search, before the
+        // request ever reaches WiGLE's API (confirmed: the stored API token itself
+        // authenticates fine via a direct curl test with the same Authorization header).
+        $toBool = function ($value) {
+            if (is_bool($value)) {
+                return $value;
+            }
+            return in_array(strtolower((string) $value), ['1', 'true', 'on', 'yes'], true);
+        };
+        $onlymine = $toBool($this->request['onlymine'] ?? false);
+        $freenet = $toBool($this->request['freenet'] ?? false);
+        $paynet = $toBool($this->request['paynet'] ?? false);
 
         if (empty($ssid) && empty($mac) && empty($country) && empty($city) && empty($ssidlike)) {
             return self::setError('At least one search parameter is required');
