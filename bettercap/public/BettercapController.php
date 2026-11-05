@@ -12,11 +12,14 @@ use frieren\helper\OpenWrtHelper;
 
 class BettercapController extends \frieren\core\Controller
 {
-    // Bettercap's own REST API + web UI (both embedded in the binary via Go's
-    // go:embed -- no separate static-asset directory needed, unlike kismet).
-    // Bound to 0.0.0.0 so it's reachable from a browser on the LAN, same as how
-    // kismet's own httpd ships bound to 0.0.0.0 by default.
-    const WEB_UI_PORT = 8083;
+    // Bettercap's REST API and its browsable web UI are two SEPARATE modules/ports,
+    // not one -- `api.rest on` alone never serves a browsable page (confirmed: GET /
+    // on the REST port returns a bare 405). The UI module (`ui on`) defaults to
+    // ui.address=127.0.0.1, which is loopback-only on the router itself and
+    // unreachable from any other machine's browser -- it must be explicitly rebound
+    // to 0.0.0.0, same as the REST API already is.
+    const REST_API_PORT = 8083;
+    const WEB_UI_PORT = 8080;
     const WEB_UI_USERNAME = 'bettercap';
 
     // tmpfs: ephemeral, cleared on reboot.
@@ -33,6 +36,16 @@ class BettercapController extends \frieren\core\Controller
     const INTERNAL_HOME_DIR = '/root/.bettercap';
 
     const INTERFACE_NAME_REGEX = '/^[A-Za-z0-9_.-]{1,32}$/';
+
+    // nohup (via execBackground) leaves bettercap's stdin inherited as a closed/EOF
+    // fd (no real terminal) -- its interactive readline loop treats that EOF as the
+    // user hitting quit, triggers its "Are you sure you want to quit this session?"
+    // confirmation, and dies seconds after starting. A FIFO kept open for writing by
+    // a long-lived `tail -f /dev/null` (writes nothing, never exits) gives bettercap
+    // a stdin that blocks forever instead of hitting EOF, so its console loop idles
+    // normally in the background the same way it would behind a real terminal.
+    const STDIN_FIFO_PATH = '/tmp/fm-bettercap.stdin';
+    const STDIN_WRITER_PID_PATH = '/tmp/fm-bettercap-stdin-writer.pid';
 
     protected $endpointRoutes = [
         'moduleStatus' => true,
@@ -150,20 +163,26 @@ class BettercapController extends \frieren\core\Controller
         // separated by ';' per bettercap's own syntax, not shell syntax -- do not
         // escapeshellarg the individual commands, only the whole -eval argument.
         $evalCommands = sprintf(
-            'set api.rest.address 0.0.0.0; set api.rest.port %d; set api.rest.username %s; set api.rest.password %s; api.rest on',
-            self::WEB_UI_PORT,
+            'set api.rest.address 0.0.0.0; set api.rest.port %d; set api.rest.username %s; set api.rest.password %s; api.rest on; set ui.address 0.0.0.0; set ui.port %d; ui on',
+            self::REST_API_PORT,
             self::WEB_UI_USERNAME,
-            $password
+            $password,
+            self::WEB_UI_PORT
         );
 
         file_put_contents(self::LOG_PATH, '');
         file_put_contents(
             self::RUN_SCRIPT_PATH,
             sprintf(
-                "#!/bin/sh\n%s -iface %s -no-colors -eval %s >> %s 2>&1\n",
+                "#!/bin/sh\nrm -f %s\nmkfifo %s\ntail -f /dev/null > %s &\necho \$! > %s\n%s -iface %s -no-colors -eval %s < %s >> %s 2>&1\n",
+                escapeshellarg(self::STDIN_FIFO_PATH),
+                escapeshellarg(self::STDIN_FIFO_PATH),
+                escapeshellarg(self::STDIN_FIFO_PATH),
+                escapeshellarg(self::STDIN_WRITER_PID_PATH),
                 escapeshellarg($this->binPath()),
                 escapeshellarg($interface),
                 escapeshellarg($evalCommands),
+                escapeshellarg(self::STDIN_FIFO_PATH),
                 escapeshellarg(self::LOG_PATH)
             )
         );
@@ -179,6 +198,19 @@ class BettercapController extends \frieren\core\Controller
         // No pkill on this image -- killall matches by process name, unambiguous
         // here since nothing else on the device is named "bettercap".
         OpenWrtHelper::exec('killall -9 bettercap');
+
+        // Clean up the stdin-keepalive writer from startCapture() -- it would
+        // otherwise sit around forever once bettercap itself has stopped.
+        if (file_exists(self::STDIN_WRITER_PID_PATH)) {
+            $pid = trim(file_get_contents(self::STDIN_WRITER_PID_PATH));
+            if (ctype_digit($pid)) {
+                OpenWrtHelper::exec("kill -9 {$pid}");
+            }
+            unlink(self::STDIN_WRITER_PID_PATH);
+        }
+        if (file_exists(self::STDIN_FIFO_PATH)) {
+            unlink(self::STDIN_FIFO_PATH);
+        }
 
         return self::setSuccess([
             'success' => !$this->isRunning(),
