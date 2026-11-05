@@ -1,0 +1,32 @@
+{
+  "title": "Bettercap",
+  "name": "bettercap",
+  "description": "Network recon/MITM framework (ARP spoofing, sniffing, HTTP/S proxying)",
+  "icon": "crosshair",
+  "authors": [
+    {
+      "name": "ZeroDay Advisory™",
+      "email": "nullbytesX00@icloud.com"
+    }
+  ],
+  "keywords": [
+    "network",
+    "mitm",
+    "sniffing",
+    "recon"
+  ],
+  "repository": "https://github.com/xchwarze/frieren-modules/tree/master/bettercap",
+  "documentation": "https://github.com/xchwarze/frieren-modules/tree/master/bettercap#readme",
+  "license": "LGPL-3.0-only",
+  "guestType": [
+    "OpenWrt"
+  ],
+  "dependencies": [
+    "libpcap1",
+    "libusb-1.0-0"
+  ],
+  "minPanelVersion": "1.4.1",
+  "system": false,
+  "forceSidebar": true,
+  "version": "1.0.3"
+}

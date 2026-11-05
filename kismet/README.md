@@ -1,0 +1,187 @@
+# Frieren Module Template
+
+![Mascot](../assets/blueprint.png)
+
+## Description
+
+The `frieren-module-template` is designed as a scaffolding tool to facilitate the development of new modules extending the Frieren project. Utilizing the generation of UMD libraries, it aims to simplify the creation and integration of modular features, enhancing the Frieren ecosystem with reusable and distributable components.
+
+## Getting Started
+
+To begin developing your own module for the Frieren project, follow these steps:
+
+1. **Setup**: Clone the repository and install both `frieren-front` and `frieren-module-template` dependencies with `yarn install`.
+2. **Feature Creation**: In the `frieren-front` project, create a new feature. Utilize the `@module` alias to ensure this new feature is completely isolated.
+3. **Module Wizard**: Navigate to the `frieren-module-template` directory in your console and execute `yarn wizard`. Follow the wizard's guidance through the setup process. This command will also use as .env the .env.prod file.
+4. **Feature Integration**: Transfer the isolated feature from `frieren-front` to `frieren-module-template`, connecting it to `entry.jsx`. Remember to correct the paths by doing a mass replace similar to this: `features/tcpdump` -> `feature`.
+5. **Build Module**: In the `frieren-module-template` project, run `yarn build` to compile your module.
+6. **Finalize and Publish**: Rename the module folder to match your module's name and upload it to GitHub.
+7. **Explore Existing Modules**: For inspiration or guidance, you can view a variety of already developed modules in the official [module repository](https://github.com/xchwarze/frieren-modules). These modules demonstrate practical solutions to common challenges such as dependency management and data handling via polling, serving as valuable templates for similar functionalities in new modules.
+
+## Module Development
+
+This template comes equipped with various scripts to aid in your module development:
+
+- `build`: Compiles your module into a distributable format.
+- `wizard`: A guided setup to scaffold your module.
+- `validate`: Ensures your module meets the required specifications.
+- `update-module`: Syncs a module's dependencies and config files with this template. Supports `--force`, `--no-files`, `--no-install`, and `--build` flags.
+- `version-bump`: Bumps the module version in package.json and manifest.json.
+- `test` / `test:watch`: Runs the frontend (Vitest) test suite once, or in watch mode. See [Testing](#testing) below.
+
+## Testing
+
+This template ships two independent, dev-only test setups — neither is required to build a
+module, and neither ships to the device.
+
+### Frontend — Vitest
+
+```bash
+yarn test         # vitest run --passWithNoTests
+yarn test:watch   # vitest, watch mode
+```
+
+- Config: `vitest.config.js` (jsdom environment; `@module`/`@src`/`@common` aliases matching
+  `vite.config.js`) + `vitest.setup.jsx`, which mocks the `@common` components a scaffolded
+  module is most likely to render (`PanelCard`, `Button`, `FormActions`, `SkeletonBar`) so a
+  component test doesn't need a real `frieren-front` checkout to run. Anything imported from
+  `@common` that ISN'T mocked there still resolves for real, via `VITE_COMMON_ALIAS` — there is
+  no monolithic `@common/components/Form` to mock (§6.6: the form system is individual
+  subpath imports only).
+- Tests live in `tests-js/`, not `src/` — kept out of the `feature/{atoms,components,...}`
+  tree the same way `tests-php/` sits outside `public/`. Example tests:
+  `tests-js/StateDemoCard.test.jsx` (renders a real component, exercises real jotai atoms +
+  wouter, only the two `@common` components it uses are mocked) and
+  `tests-js/queryKeys.test.js` (plain logic, no rendering — note `.js`, not just `.jsx`, is
+  picked up).
+- Adapted from `frieren-modules-private/evilportal`'s Vitest setup — see `CHEATSHEET.md`'s
+  Testing section for the full convention.
+
+### Backend — PHPUnit
+
+```bash
+composer install   # one-time: installs PHPUnit + php-mock/php-mock-phpunit into vendor/
+composer test        # or: vendor/bin/phpunit
+```
+
+- Test-only Composer manifest (`composer.json`) — production PHP (`public/*.php`) is still
+  loaded by the host framework's own autoloader on-device; nothing here is shipped.
+- Path-repos `../frieren-back` in as a dev dependency (`frieren/back`), so
+  `\frieren\core\Controller`, `\frieren\helper\OpenWrtHelper`, etc. resolve to the real
+  framework classes (symlinked, not copied) — see `frieren-back/README.md` for that side of
+  the same setup.
+- Example tests: `tests-php/ModuleOpenWrtHelperTest.php` (pure logic + a mocked ubus call) and
+  `tests-php/DemoControllerTest.php` (dispatches the real `DemoController` and reads the
+  response via the shared `tests-php/Support/DispatchesControllers.php` trait —
+  `ResponseHandler` has no public getter for its data/error, and its own `dispatchResponse()`
+  calls `exit()`, so this trait uses Reflection instead of calling it).
+- See `CHEATSHEET.md`'s Testing section for the mocking technique
+  (`php-mock/php-mock-phpunit` intercepting `exec()`/`file()`/etc. at the PHP namespace level).
+
+## Manifest (`public/manifest.json`)
+
+The manifest is your module's contract with the panel. Run `yarn validate` to check it.
+
+```json
+{
+  "title": "Demo Module",
+  "name": "demo",
+  "description": "Demo for scaffolding a new module",
+  "icon": "zap",
+  "authors": [
+    { "name": "DSR!", "email": "xchwarze@gmail.com" }
+  ],
+  "keywords": ["development"],
+  "repository": "https://github.com/xchwarze/frieren-modules/tree/master/demo",
+  "documentation": "https://github.com/xchwarze/frieren-modules/tree/master/demo#readme",
+  "license": "LGPL-3.0-or-later",
+  "guestType": ["OpenWrt"],
+  "dependencies": [],
+  "minPanelVersion": "1.4.1",
+  "system": false,
+  "forceSidebar": false,
+  "version": "1.0.0"
+}
+```
+
+| Field | Required | Notes |
+|-------|----------|-------|
+| `name` | yes | Routing key / namespace stem. Must match `^[a-z0-9_]+$` (lowercase, digits, underscore — **no hyphens**). |
+| `title` | yes | Human-facing name. |
+| `description` | yes | One line. |
+| `version` | yes | semver `x.y.z`. |
+| `authors` | yes | Array of `{name, email}` (one or more). |
+| `icon` | sidebar only | A Feather glyph name (see ui-layout.spec §12) **or** an `icon.png` shipped in `public/`. Required when `forceSidebar:true`. |
+| `repository` | yes | Source URL. |
+| `documentation` | no | Docs/readme URL; shown as a button in the panel when present. |
+| `license` | no | SPDX id (e.g. `LGPL-3.0-or-later`). |
+| `keywords` | no | String array. |
+| `guestType` | no | Platforms: `OpenWrt` and/or `RaspberryPi`. |
+| `dependencies` | no | opkg packages for the install handshake. |
+| `minPanelVersion` | no | Minimum panel version (semver). The panel blocks install + shows a notice if it is older. |
+| `system` | yes | `false` for third-party modules. |
+| `forceSidebar` | yes | Show in the sidebar by default. |
+| `order` | no | Reserved for built-in sidebar layout; third-party items append after, by discovery order. |
+
+## Advanced Examples for Reference
+
+This section provides insights into more complex scenarios that you might encounter while developing modules for the Frieren project. These examples highlight advanced usage of the framework's capabilities and can serve as a reference for implementing sophisticated features in your modules.
+
+- **[WPA Online Crack](https://github.com/xchwarze/frieren-modules/tree/master/wpaonlinecrack)**: This example demonstrates the automatic dependency installation system. It illustrates how the module seamlessly integrates required libraries without manual interventions, ensuring that all dependencies are correctly managed and installed.
+- **[TCP Dump](https://github.com/xchwarze/frieren-modules/tree/master/tcpdump)**: Here, you can see a variation of the dependency installation system, which includes additional checks performed by a third-party module. This ensures that all dependencies not only get installed but are also verified and validated against specific criteria before being utilized.
+- **[WPA Online Crack](https://github.com/xchwarze/frieren-modules/tree/master/wpaonlinecrack)**: This example provides insights into using the system to persist configurations. It shows how to effectively save and retrieve configuration settings to ensure that data persistence is maintained across sessions, which is crucial for modules that require state management.
+
+These examples are designed to provide a deeper understanding of how you can leverage the Frieren project's infrastructure to develop robust and efficient modules.
+
+## Common Configuration
+
+In the root of this project, the `config` folder contains common configurations essential for compiling modules. Here is an example of the configurations available:
+
+```env
+# API gateway
+VITE_RELATIVE_API_PATH=api/index.php
+
+# Path to the shared frieren-front sources (the @src / @common components).
+# Defaults to ../frieren-front/src (assumes frieren-front is a sibling checkout).
+VITE_COMMON_ALIAS=../frieren-front/src
+
+# for build
+VITE_COMPRESSION_ENABLE=true
+VITE_ANALYZER_ENABLE=false
+VITE_SOURCEMAP_ENABLE=false
+VITE_MANUAL_CHUNKS_ENABLE=false
+```
+
+### Configuration Flags
+
+- `VITE_RELATIVE_API_PATH`: Defines the relative path to the API entry point. This is used to configure the API gateway path.
+- `VITE_COMMON_ALIAS`: Filesystem path to `frieren-front/src`, which backs the `@src` and `@common` aliases (the shared `PanelCard`, `PanelStack`, `Button`, … components). Defaults to `../frieren-front/src`, i.e. it assumes `frieren-front` sits next to the module. When `frieren-front` lives elsewhere (e.g. a monorepo where it is under `frieren/frieren-front`), point this at the correct `frieren-front/src`.
+- `VITE_COMPRESSION_ENABLE`: When set to true, it enables compression of the build files, reducing their size and improving load times. This option is primarily used for creating distributable releases and for testing with real hardware in actual environments.
+- `VITE_ANALYZER_ENABLE`: Enables the bundle analyzer plugin when set to `true`. This is useful for analyzing and visualizing the size of the output files.
+- `VITE_SOURCEMAP_ENABLE`: Controls the generation of sourcemaps. Setting this to `true` helps in debugging by mapping the compiled code back to the original source code.
+- `VITE_MANUAL_CHUNKS_ENABLE`: When enabled, this allows for manual chunking of the build output, which can be particularly useful during development and testing with real hardware. This option helps to optimize the loading strategy by separating vendor code from the core code.
+
+### Overriding flags from the CLI
+
+Every flag above is read from the build environment, so besides editing `config/.env.<mode>`
+you can pass any of them inline on the build command — the inline value wins over the `.env`
+file. Handy for one-off builds (CI, a relocated `frieren-front`) without editing committed config:
+
+```bash
+# Build pointing the shared aliases at a frieren-front that isn't a sibling:
+VITE_COMMON_ALIAS=/path/to/frieren-front/src yarn build --mode release
+```
+
+## Dependencies
+
+Your module will have access to a range of peer dependencies for development, including React, React-DOM, jotai, and more, to ensure compatibility and seamless integration with the Frieren ecosystem.
+
+## License
+
+This template and your modules are intended to be shared under the LGPL-3.0-only License, promoting open-source collaboration and distribution.
+
+## Notes
+
+Developing a module for the Frieren project is an opportunity to contribute to a growing ecosystem. Your modules can add significant value, from system configuration to the management of third-party modules. Following the steps above will guide you through the process of creating, building, and sharing your module.
+
+Happy coding!

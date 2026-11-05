@@ -1,0 +1,33 @@
+{
+  "title": "MDK4",
+  "name": "mdk4",
+  "description": "IEEE 802.11 protocol vulnerability testing (beacon flood, deauth, auth DoS, SSID probing)",
+  "icon": "zap",
+  "authors": [
+    {
+      "name": "ZeroDay Advisory™",
+      "email": "nullbytesX00@icloud.com"
+    }
+  ],
+  "keywords": [
+    "wifi",
+    "monitor",
+    "deauth",
+    "dos"
+  ],
+  "repository": "https://github.com/xchwarze/frieren-modules/tree/master/mdk4",
+  "documentation": "https://github.com/xchwarze/frieren-modules/tree/master/mdk4#readme",
+  "license": "LGPL-3.0-only",
+  "guestType": [
+    "OpenWrt"
+  ],
+  "dependencies": [
+    "libpcap1",
+    "libnl200",
+    "libnl-genl200"
+  ],
+  "minPanelVersion": "1.4.1",
+  "system": false,
+  "forceSidebar": true,
+  "version": "1.0.2"
+}

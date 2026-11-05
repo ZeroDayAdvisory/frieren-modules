@@ -1,0 +1,37 @@
+{
+  "title": "Kismet",
+  "name": "kismet",
+  "description": "Wireless network/device detection and tracking via Kismet",
+  "icon": "wifi",
+  "authors": [
+    {
+      "name": "ZeroDay Advisory™",
+      "email": "nullbytesX00@icloud.com"
+    }
+  ],
+  "keywords": [
+    "wifi",
+    "monitor",
+    "detection",
+    "tracking"
+  ],
+  "repository": "https://github.com/xchwarze/frieren-modules/tree/master/kismet",
+  "documentation": "https://github.com/xchwarze/frieren-modules/tree/master/kismet#readme",
+  "license": "LGPL-3.0-only",
+  "guestType": [
+    "OpenWrt"
+  ],
+  "dependencies": [
+    "libcap",
+    "zlib",
+    "libsqlite3-0",
+    "libopenssl3",
+    "libstdcpp6",
+    "libatomic1",
+    "libpcap1"
+  ],
+  "minPanelVersion": "1.4.1",
+  "system": false,
+  "forceSidebar": true,
+  "version": "1.0.3"
+}
