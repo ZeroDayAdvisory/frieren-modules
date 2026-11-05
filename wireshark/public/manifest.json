@@ -1,0 +1,31 @@
+{
+  "title": "Wireshark",
+  "name": "wireshark",
+  "description": "Remote packet capture gateway for Wireshark — streams live traffic to Wireshark running on your own computer via rpcapd. No Wireshark/tshark binary runs on the router itself.",
+  "icon": "activity",
+  "authors": [
+    {
+      "name": "ZeroDay Advisory™",
+      "email": "nullbytesX00@icloud.com"
+    }
+  ],
+  "keywords": [
+    "wireshark",
+    "rpcap",
+    "packet capture",
+    "remote capture"
+  ],
+  "repository": "https://github.com/ZeroDayAdvisory/frieren-modules/tree/master/wireshark",
+  "documentation": "https://github.com/ZeroDayAdvisory/frieren-modules/tree/master/wireshark#readme",
+  "license": "LGPL-3.0-only",
+  "guestType": [
+    "OpenWrt"
+  ],
+  "dependencies": [
+    "rpcapd"
+  ],
+  "minPanelVersion": "1.4.1",
+  "system": false,
+  "forceSidebar": true,
+  "version": "1.0.0"
+}
