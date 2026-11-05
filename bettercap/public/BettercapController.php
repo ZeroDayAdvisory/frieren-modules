@@ -158,16 +158,22 @@ class BettercapController extends \frieren\core\Controller
         }
 
         $password = $this->restPassword();
+        $homeDir = $this->homeDir();
 
         // -eval runs these in bettercap's own interactive session before it settles;
         // separated by ';' per bettercap's own syntax, not shell syntax -- do not
         // escapeshellarg the individual commands, only the whole -eval argument.
+        // Handshakes/events persisted under homeDir() (USB when mounted, same as the
+        // REST credentials file) instead of bettercap's own default of ~ (internal
+        // flash), matching every other module's data on this device.
         $evalCommands = sprintf(
-            'set api.rest.address 0.0.0.0; set api.rest.port %d; set api.rest.username %s; set api.rest.password %s; api.rest on; set ui.address 0.0.0.0; set ui.port %d; ui on',
+            'set api.rest.address 0.0.0.0; set api.rest.port %d; set api.rest.username %s; set api.rest.password %s; api.rest on; set ui.address 0.0.0.0; set ui.port %d; ui on; set wifi.handshakes.file %s/handshakes.pcap; set events.stream.output %s/events.log',
             self::REST_API_PORT,
             self::WEB_UI_USERNAME,
             $password,
-            self::WEB_UI_PORT
+            self::WEB_UI_PORT,
+            $homeDir,
+            $homeDir
         );
 
         file_put_contents(self::LOG_PATH, '');
